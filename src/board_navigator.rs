@@ -1,6 +1,6 @@
-use crate::position::Position;
+use crate::position::{Position, Castling};
 use crate::pieces::Side;
-use crate::utils::{is_rank, coord_from_index};
+use crate::utils::{coord_from_index, file_of_index, is_rank};
 
  /**
   * A second, separate way to do proper move notation { piece: Piece, toCoord, capture: boolean, castling: Q | K, promotionPiece: Piece, disambiguation: file | rank | { file, rank } }
@@ -114,8 +114,8 @@ impl Coord {
     /// Returns an Option of a Coord by moving x squares North and y squares East
     /// Direction is in white's orientation, with A1 South West and H8 North East
     fn to(&self, x: i32, y: i32) -> Option<Coord> {
-        match self.n(1, x) {
-            Some(n) => n.e(1, y),
+        match self.n(1, y) {
+            Some(n) => n.e(1, x),
             None => None,
         }
     }
@@ -169,8 +169,9 @@ fn i32_as_file(file: i32) -> Option<char> {
     }
 }
 
+/// Describes castling King or Queen side for a given move
 #[derive(Debug)]
-enum Castling {
+enum CastlingSide {
     K,
     Q,
 }
@@ -230,13 +231,13 @@ pub fn get_piece_movements(position: &Position) -> /*Vec<Move>*/ () {
             movements.append(&mut get_knight_movements(position, i));
         }
         else if position.is_rook(i) {
-            movements.append(&mut get_rook_movements(position, direction, i));
+            movements.append(&mut get_rook_movements(position, i));
         }
         else if position.is_queen(i) {
             movements.append(&mut get_queen_movements(position, i));
         }
         else if position.is_king(i) {
-            movements.append(&mut get_king_movements(position, i));
+            movements.append(&mut get_king_movements(position, direction, i));
         }
     }
 
@@ -263,33 +264,16 @@ fn get_pawn_movements(position: &Position, direction: i32, index: i32) -> Vec<Mo
 fn get_bishop_movements(position: &Position, index: i32) -> Vec<Move> {
         let mut movements = vec![];
 
-        movements.append(
-            &mut move_direction_until_blocked(
-                position,
-                coord_from_index(index),
-                |coord| coord.ne(1, 1)),
-        );
-
-        movements.append(
-            &mut move_direction_until_blocked(
-                position,
-                coord_from_index(index),
-                |coord| coord.se(1, 1)),
-        );
-
-        movements.append(
-            &mut move_direction_until_blocked(
-                position,
-                coord_from_index(index),
-                |coord| coord.sw(1, 1)),
-        );
-
-        movements.append(
-            &mut move_direction_until_blocked(
-                position,
-                coord_from_index(index),
-                |coord| coord.nw(1, 1)),
-        );
+        for direction in [
+            (1, 1),
+            (1, -1),
+            (-1, -1),
+            (-1, 1),
+        ] {
+            movements.append(
+                &mut get_moves_in_direction_until_blocked(position, coord_from_index(index), direction)
+            );
+        }
 
         movements
 }
@@ -336,8 +320,19 @@ fn get_knight_movements(position: &Position, index: i32) -> Vec<Move> {
     movements
 }
 
-fn get_rook_movements(position: &Position, direction: i32, index: i32) -> Vec<Move> {
+fn get_rook_movements(position: &Position, index: i32) -> Vec<Move> {
     let mut movements = vec![];
+
+    for direction in [
+        (0, 1),
+        (1, 0),
+        (0, -1),
+        (-1, 0),
+    ] {
+        movements.append(
+            &mut get_moves_in_direction_until_blocked(position, coord_from_index(index), direction)
+        );
+    }
 
     movements
 }
@@ -345,60 +340,111 @@ fn get_rook_movements(position: &Position, direction: i32, index: i32) -> Vec<Mo
 fn get_queen_movements(position: &Position, index: i32) -> Vec<Move> {
     let mut movements = vec![];
 
+    movements.append(
+        &mut get_rook_movements(position, index)
+    );
+
+    movements.append(
+        &mut get_bishop_movements(position, index)
+    );
+
     movements
 }
 
-fn get_king_movements(position: &Position, index: i32) -> Vec<Move> {
+fn get_king_movements(position: &Position, direction: i32, index: i32) -> Vec<Move> {
     let mut movements = vec![];
 
+    let directions = [
+        (0,1),
+        (1,1),
+        (1,0),
+        (1,-1),
+        (0,-1),
+        (-1,-1),
+        (-1,0),
+        (-1,1),
+    ];
+
+    for dir in directions {
+        if let Some(m) = get_move_in_direction(position, &coord_from_index(index), dir) {
+            movements.push(m);
+        }
+    }
+
+    // castling
+    if direction > 0 && file_of_index(index) == 'a' {
+        if position.castling.K {
+            // TODO: if route to castling is not in line of sight of opposing piece
+        }
+        if position.castling.Q {
+            // TODO: if route to castling is not in line of sight of opposing piece
+        }
+    } else if direction < 0 && file_of_index(index) == 'h' {
+        if position.castling.k {
+            // TODO: if route to castling is not in line of sight of opposing piece
+        }
+        if position.castling.q {
+            // TODO: if route to castling is not in line of sight of opposing piece
+        }
+    }
+
     movements
 }
 
-// returns a vec of moves in a given direction until blocked by own piece, blocked by piece that can be captured or reaches end of board
-fn move_direction_until_blocked<F>(position: &Position, coord: Coord, get_next_coord: F) -> Vec<Move> where
-    F: Fn(Coord) -> Option<Coord>
-{
+/// returns a vec of moves in a given direction until blocked by own piece, blocked by piece that can be captured or reaches end of board
+fn get_moves_in_direction_until_blocked(position: &Position, coord: Coord, direction: (i32, i32)) -> Vec<Move> {
     let mut movements = vec![];
     let mut current_coord = coord.clone();
 
-    while let Some(next_coord) = get_next_coord(current_coord.clone()) {
-        let next_index = next_coord.to_index();
-        if !position.has_piece(next_index) {
-            movements.push(
-                Move {
-                    from: coord.clone(),
-                    to: next_coord.clone(),
-                    capture: false,
-                    en_passant: false,
-                    castling: None,
-                    promotion: None,
-                }
-            );
-        } else {
-            if
-                (position.is_white(coord.to_index()) && position.is_black(next_index)) ||
-                (position.is_black(coord.to_index()) && position.is_white(next_index))
-            {
-                // opposite colour is free to capture
-                movements.push(
-                    Move {
-                        from: coord.clone(),
-                        to: next_coord.clone(),
-                        capture: true,
-                        en_passant: false,
-                        castling: None,
-                        promotion: None,
-                    }
-                );
-            }
+    while let Some(next_coord) = current_coord.to(direction.0, direction.1) {
+        let (move_option, is_blocked) = get_move_to(position, &coord, &next_coord);
+        
+        if let Some(m) = move_option {
+            movements.push(m);
+        }
 
-            break; // break since the move was blocked
+        if is_blocked {
+            break;
         }
 
         current_coord = next_coord;
     }
 
     movements
+}
+
+fn get_move_in_direction(position: &Position, from: &Coord, direction: (i32, i32)) -> Option<Move> {
+
+    if let Some(to) = from.to(direction.0, direction.1) {
+        return get_move_to(position, from, &to).0;
+    }
+
+    None
+}
+
+fn get_move_to(position: &Position, from: &Coord, to: &Coord) -> (Option<Move>, bool) {
+    let next_index = to.to_index();
+    let is_blocked = position.has_piece(next_index);
+    let has_capturable_piece = is_blocked && (position.is_white(from.to_index()) && position.is_black(next_index)) ||
+        (position.is_black(from.to_index()) && position.is_white(next_index));
+
+    if !is_blocked || has_capturable_piece {
+        (
+            Some(
+                Move {
+                    from: from.clone(),
+                    to: to.clone(),
+                    capture: has_capturable_piece,
+                    en_passant: false,
+                    castling: None,
+                    promotion: None,
+                }
+            ),
+            is_blocked
+        )
+    } else {
+        (None, is_blocked)
+    }
 }
 
 fn get_pawn_captures(position: &Position, direction: i32, coord: Coord) -> Vec<Move> {
