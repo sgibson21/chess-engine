@@ -53,8 +53,18 @@ impl BitBoard {
         self.0.count_ones()
     }
 
+    pub fn get_indicies(self) -> Vec<u32> {
+        (0..64).filter(|i| self.0 >> i & 1 == 1).collect()
+    }
+
     pub fn print(self) {
         println!("Board:\t{:#066b}", (self).0)
+    }
+}
+
+impl std::fmt::Display for BitBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#066b}", self.0)
     }
 }
 

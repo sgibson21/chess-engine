@@ -1,7 +1,9 @@
-use crate::position::{Position, Castling};
+use crate::position::Position;
 use crate::pieces::Side;
-use crate::utils::{coord_from_index, file_of_index, is_rank};
+use crate::utils::{coord_from_index, is_rank};
+
 use super::Coord;
+use super::is_attacked;
 
  /**
   * A second, separate way to do proper move notation { piece: Piece, toCoord, capture: boolean, castling: Q | K, promotionPiece: Piece, disambiguation: file | rank | { file, rank } }
@@ -27,11 +29,12 @@ impl std::fmt::Display for Piece {
     }
 }
 
-/// Describes castling King or Queen side for a given move
 #[derive(Debug)]
-enum CastlingSide {
-    K,
-    Q,
+pub enum CastlingSide {
+    WK,
+    WQ,
+    BK,
+    BQ,
 }
 
 /**
@@ -43,7 +46,7 @@ struct Move {
     to: Coord,
     capture: bool,
     en_passant: bool, // just a bool, as the Position holds the en_passant_target
-    castling: Option<Castling>, // optional
+    castling: Option<CastlingSide>, // optional
     promotion: Option<Piece>, // optional
 }
 
@@ -54,7 +57,16 @@ impl std::fmt::Display for Move {
             Some(p) => format!("= {p}"),
             None            => String::from(""),
         };
-        write!(f, "{} {} {} {}", self.from, delim, self.to, promo)
+        let castling = match &self.castling {
+            Some(c) => match c {
+                CastlingSide::WK => String::from("0-0"),
+                CastlingSide::WQ => String::from("0-0-0"),
+                CastlingSide::BK => String::from("0-0"),
+                CastlingSide::BQ => String::from("0-0-0"),
+            },
+            None => String::from(""),
+        };
+        write!(f, "{} {} {} {} {}", self.from, delim, self.to, promo, castling)
     }
 }
 
@@ -230,23 +242,79 @@ fn get_king_movements(position: &Position, direction: i32, index: i32) -> Vec<Mo
     }
 
     // castling
-    if direction > 0 && file_of_index(index) == 'a' {
-        if position.castling.K {
-            // TODO: if route to castling is not in line of sight of opposing piece
-        }
-        if position.castling.Q {
-            // TODO: if route to castling is not in line of sight of opposing piece
-        }
-    } else if direction < 0 && file_of_index(index) == 'h' {
-        if position.castling.k {
-            // TODO: if route to castling is not in line of sight of opposing piece
-        }
-        if position.castling.q {
-            // TODO: if route to castling is not in line of sight of opposing piece
+    if !is_in_check(position, direction) {
+        if direction > 0 && is_rank(index, 1) {
+            if position.castling.K && are_coords_clear(position, vec![Coord('f',1), Coord('g',1)], direction) {
+                movements.push(Move {
+                    from: coord_from_index(index),
+                    to: Coord('g', 1),
+                    capture: false,
+                    en_passant: false,
+                    castling: Some(CastlingSide::WK),
+                    promotion: None,
+                });
+            }
+            if position.castling.Q && are_coords_clear(position, vec![Coord('d',1), Coord('c',1), Coord('b',1)], direction) {
+                movements.push(Move {
+                    from: coord_from_index(index),
+                    to: Coord('c', 1),
+                    capture: false,
+                    en_passant: false,
+                    castling: Some(CastlingSide::WQ),
+                    promotion: None,
+                });
+            }
+        } else if direction < 0 && is_rank(index, 8) {
+            if position.castling.k && are_coords_clear(position, vec![Coord('f',8), Coord('g',8)], direction) {
+                movements.push(Move {
+                    from: coord_from_index(index),
+                    to: Coord('g', 8),
+                    capture: false,
+                    en_passant: false,
+                    castling: Some(CastlingSide::BK),
+                    promotion: None,
+                });
+            }
+            if position.castling.q && are_coords_clear(position, vec![Coord('d',8), Coord('c',8), Coord('b',8)], direction) {
+                movements.push(Move {
+                    from: coord_from_index(index),
+                    to: Coord('c', 8),
+                    capture: false,
+                    en_passant: false,
+                    castling: Some(CastlingSide::BQ),
+                    promotion: None,
+                });
+            }
         }
     }
 
     movements
+}
+
+fn are_coords_clear(position: &Position, coords: Vec<Coord>, direction :i32) -> bool {
+    for coord in coords {
+        if position.has_piece(coord.to_index()) {
+            return false;
+        }
+
+        if is_attacked(position, &coord, direction) {
+            return false;
+        }
+    }
+
+    return true
+}
+
+fn is_in_check(position: &Position, direction: i32) -> bool {
+    let king_bb = if direction > 0 { position.get_white_kings() } else { position.get_black_kings() };
+    let king_indicies = king_bb.get_indicies();
+    let king_index_opt = king_indicies.get(0);
+    if let Some(king_index) = king_index_opt {
+        let king_coord = coord_from_index(*king_index as i32);
+        return is_attacked(position, &king_coord, direction);
+    } else {
+        false // no king on the board??
+    }
 }
 
 /// returns a vec of moves in a given direction until blocked by own piece, blocked by piece that can be captured or reaches end of board

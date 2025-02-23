@@ -13,7 +13,6 @@ use rocket::http::Header;
 use rocket::{Request, Response};
 use rocket::fairing::{Fairing, Info, Kind};
 
-use crate::fen::from_fen;
 use crate::evaluator::evaluate;
 
 pub struct CORS;
@@ -60,14 +59,6 @@ struct ResponsePayload {
 
 #[post("/evaluate", data = "<fen>")]
 fn evaluate_post(fen: Json<RequestPayload>) -> Json<ResponsePayload> {
-    println!("fen: {}", fen.fen);
-    // let position = from_fen(fen.fen);
-
-    // let white_material = white_material(&position);
-    // let black_material = black_material(&position);
-
-    // println!("white: {}, black: {}, diff: {}", white_material, black_material, white_material - black_material);
-
     Json(ResponsePayload {
         evaluation: evaluate(fen.fen, 1)
     })

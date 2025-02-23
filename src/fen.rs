@@ -1,4 +1,4 @@
-use crate::pieces::{Pieces, Side};
+use crate::pieces::{PieceAsci, Pieces, Side};
 use crate::position::{StatelessPosition, Position, Castling};
 use crate::bitboard::BitBoard;
 use crate::utils::get_uni_char;
@@ -106,18 +106,18 @@ pub fn fen_to_asci_board(fen: String) -> String {
 
     // fen symbol to piece asci tuple (white, black)
     let piece_asci: HashMap<char, u32> = HashMap::from([
-        (FenSymbols::PAWN.white, 0x2659),
-        (FenSymbols::PAWN.black, 0x265F),
-        (FenSymbols::BISHOP.white, 0x2657),
-        (FenSymbols::BISHOP.black, 0x265D),
-        (FenSymbols::KNIGHT.white, 0x2658),
-        (FenSymbols::KNIGHT.black, 0x265E),
-        (FenSymbols::ROOK.white, 0x2656),
-        (FenSymbols::ROOK.black, 0x265C),
-        (FenSymbols::QUEEN.white, 0x2655),
-        (FenSymbols::QUEEN.black, 0x265B),
-        (FenSymbols::KING.white, 0x2654),
-        (FenSymbols::KING.black, 0x265A),
+        (FenSymbols::PAWN.white, PieceAsci::PAWN.white),
+        (FenSymbols::PAWN.black, PieceAsci::PAWN.black),
+        (FenSymbols::BISHOP.white, PieceAsci::BISHOP.white),
+        (FenSymbols::BISHOP.black, PieceAsci::BISHOP.black),
+        (FenSymbols::KNIGHT.white, PieceAsci::KNIGHT.white),
+        (FenSymbols::KNIGHT.black, PieceAsci::KNIGHT.black),
+        (FenSymbols::ROOK.white, PieceAsci::ROOK.white),
+        (FenSymbols::ROOK.black, PieceAsci::ROOK.black),
+        (FenSymbols::QUEEN.white, PieceAsci::QUEEN.white),
+        (FenSymbols::QUEEN.black, PieceAsci::QUEEN.black),
+        (FenSymbols::KING.white, PieceAsci::KING.white),
+        (FenSymbols::KING.black, PieceAsci::KING.black),
     ]);
 
     let mut output: String = "".to_owned();
