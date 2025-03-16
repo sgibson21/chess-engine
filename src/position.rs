@@ -3,13 +3,13 @@
 use crate::bitboard::BitBoard;
 use crate::fen::{to_fen, fen_to_asci_board};
 use crate::utils::{coord_from_index};
-use crate::board_navigator::Coord;
+use crate::board_navigator::{Coord, Piece};
 use crate::pieces::Side;
 
 use std::fmt;
 
 #[derive(Debug, Clone)]
-pub struct Position  {
+pub struct Position {
     /// Board for each side
     pub sides: [BitBoard; 2],
     // BitBoards for all pieces
@@ -60,32 +60,64 @@ impl Position {
         self.sides[SIDE_WHITE_INDEX]
     }
 
+    fn get_white_pieces_mut(&mut self) -> &mut BitBoard {
+        &mut self.sides[SIDE_WHITE_INDEX]
+    }
+
     fn get_black_pieces(&self) -> BitBoard {
         self.sides[SIDE_BLACK_INDEX]
+    }
+
+    fn get_black_pieces_mut(&mut self) -> &mut BitBoard {
+        &mut self.sides[SIDE_BLACK_INDEX]
     }
 
     fn get_pawns(&self) -> BitBoard {
         self.pieces[PIECE_PAWN_INDEX]
     }
 
+    fn get_pawns_mut(&mut self) -> &mut BitBoard {
+        &mut self.pieces[PIECE_PAWN_INDEX]
+    }
+
     fn get_bishops(&self) -> BitBoard {
         self.pieces[PIECE_BISHOP_INDEX]
+    }
+
+    fn get_bishops_mut(&mut self) -> &mut BitBoard {
+        &mut self.pieces[PIECE_BISHOP_INDEX]
     }
 
     fn get_knights(&self) -> BitBoard {
         self.pieces[PIECE_KNIGHT_INDEX]
     }
 
+    fn get_knights_mut(&mut self) -> &mut BitBoard {
+        &mut self.pieces[PIECE_KNIGHT_INDEX]
+    }
+
     fn get_rooks(&self) -> BitBoard {
         self.pieces[PIECE_ROOK_INDEX]
+    }
+
+    fn get_rooks_mut(&mut self) -> &mut BitBoard {
+        &mut self.pieces[PIECE_ROOK_INDEX]
     }
 
     fn get_queens(&self) -> BitBoard {
         self.pieces[PIECE_QUEEN_INDEX]
     }
 
+    fn get_queens_mut(&mut self) -> &mut BitBoard {
+        &mut self.pieces[PIECE_QUEEN_INDEX]
+    }
+
     fn get_kings(&self) -> BitBoard {
         self.pieces[PIECE_KING_INDEX]
+    }
+
+    fn get_kings_mut(&mut self) -> &mut BitBoard {
+        &mut self.pieces[PIECE_KING_INDEX]
     }
 
     pub fn has_piece(&self, index: i32) -> bool {
@@ -185,6 +217,48 @@ impl Position {
         self.get_black_pieces() & self.get_kings()
     }
 
+    pub fn make_move(&mut self, from: i32, to: i32) -> Result<i32, String> {
+        let o_side = self.get_side(from);
+        if let Some(side) = o_side {
+            let o_piece = self.get_piece(from);
+            if let Some(piece) = o_piece  {
+                // place the piece first because we need to know the side and type
+                self.place_piece(to, side, piece);
+
+                // remove the piece moved after it was placed
+                self.remove_piece(from);
+
+                return Ok(to);
+            }
+        }
+
+        Err(format!("No Piece found at {}", from))
+    }
+
+    pub fn get_side(&self, index: i32) -> Option<Side> {
+        if self.has_piece(index) {
+            if self.is_white(index) { return Some(Side::White); } else { return Some(Side::Black); }
+        }
+        None
+    }
+
+    pub fn get_piece(&self, index: i32) -> Option<Piece> {
+        if self.is_pawn(index) {
+            return Some(Piece::P);
+        } else if self.is_bishop(index) {
+            return Some(Piece::B);
+        } else if self.is_knight(index) {
+            return Some(Piece::N);
+        } else if self.is_rook(index) {
+            return Some(Piece::R);
+        } else if self.is_queen(index) {
+            return Some(Piece::Q);
+        } else if self.is_king(index) {
+            return Some(Piece::K);
+        }
+        None
+    }
+
     pub fn print(&self) {
         let built_fen = to_fen(self.clone());
         println!("\nFEN built from position:\n\t{}", built_fen);
@@ -195,12 +269,64 @@ impl Position {
         println!("Castling: {:?}", self.castling);
         println!("En Passant: {:?}", self.en_passant_target);
     }
+
+    fn remove_piece(&mut self, index: i32) {
+        if self.has_piece(index) {
+            let side_bb = self.get_side_bitboard(index);
+            side_bb.unset_index(index as u8);
+            let piece_bb_opt = self.get_piece_bitboard(index);
+            if let Some(piece_bb) = piece_bb_opt {
+                piece_bb.unset_index(index as u8);
+            }
+        }
+    }
+
+    fn place_piece(&mut self, index: i32, side: Side, piece: Piece) {
+        if self.has_piece(index) {
+            // if there is a piece, remove it
+            self.remove_piece(index);
+        }
+
+        let side_bitboard = match side {
+            Side::White => self.get_white_pieces_mut(),
+            Side::Black => self.get_black_pieces_mut(),
+        };
+
+        side_bitboard.set_index(index as u8);
+
+        let piece_bitboard = match piece {
+            Piece::P => self.get_pawns_mut(),
+            Piece::N => self.get_knights_mut(),
+            Piece::B => self.get_bishops_mut(),
+            Piece::R => self.get_rooks_mut(),
+            Piece::Q => self.get_queens_mut(),
+            Piece::K => self.get_kings_mut(),
+        };
+
+        piece_bitboard.set_index(index as u8);
+    }
+
+    fn get_side_bitboard(&mut self, index: i32) -> &mut BitBoard {
+        if self.is_white(index) { self.get_white_pieces_mut() } else { self.get_black_pieces_mut() }
+    }
+
+    fn get_piece_bitboard(&mut self, index: i32) -> Option<&mut BitBoard> {
+        if self.is_pawn(index) {
+            return Some(self.get_pawns_mut());
+        } else if self.is_bishop(index) {
+            return Some(self.get_bishops_mut());
+        } else if self.is_knight(index) {
+            return Some(self.get_knights_mut());
+        } else if self.is_rook(index) {
+            return Some(self.get_rooks_mut());
+        } else if self.is_queen(index) {
+            return Some(self.get_queens_mut());
+        } else if self.is_king(index) {
+            return Some(self.get_kings_mut());
+        }
+        None
+    }
 }
-
-// pub fn get_piece(position: &Position, coord: Coord) -> Option<Piece> {
-//     None
-// }
-
 
 pub struct StatelessPosition {
     /// Board for each side
@@ -264,3 +390,65 @@ impl fmt::Debug for Castling {
         write!(f, "{}", castling)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Side, Piece, Coord};
+    use crate::fen::{from_fen, fen_to_asci_board};
+
+    #[test]
+    fn remove_piece() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let coord = Coord('e',2);
+        let removed_index = coord.to_index();
+
+        position.remove_piece(removed_index);
+        position.print();
+        assert_eq!(position.has_piece(removed_index), false);
+    }
+
+    #[test]
+    fn place_piece() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let coord = Coord('e',4);
+        let placed_index = coord.to_index();
+        let side = Side::White;
+        let piece = Piece::Q;
+
+        position.place_piece(placed_index, side, piece);
+        position.print();
+        assert_eq!(position.has_piece(placed_index), true);
+    }
+
+    #[test]
+    fn make_move_success() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let from_coord = Coord('e',2);
+        let to_coord = Coord('e',4);
+
+        position.print();
+    
+        let result = position.make_move(from_coord.to_index(), to_coord.to_index());
+    
+        position.print();
+        
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn make_move_fail() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let from_coord = Coord('e',3);
+        let to_coord = Coord('e',4);
+    
+        let result = position.make_move(from_coord.to_index(), to_coord.to_index());
+
+        assert!(result.is_err());
+        assert_eq!(result, Err(String::from("No Piece found at 44")));
+    }
+}
+

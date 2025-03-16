@@ -10,6 +10,7 @@ use super::is_attacked;
   */
   #[derive(Debug)]
 pub enum Piece {
+    P,
     N,
     B,
     R,
@@ -20,6 +21,7 @@ pub enum Piece {
 impl std::fmt::Display for Piece {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Piece::P => write!(f, "Pawn"),
             Piece::N => write!(f, "Knight"),
             Piece::B => write!(f, "Bishop"),
             Piece::R => write!(f, "Rook"),
@@ -30,7 +32,7 @@ impl std::fmt::Display for Piece {
 }
 
 #[derive(Debug)]
-pub enum CastlingSide {
+enum CastlingSide {
     WK,
     WQ,
     BK,
@@ -41,7 +43,7 @@ pub enum CastlingSide {
  * An efficient way to denote a move that is not "proper move notation"
  */
 #[derive(Debug)]
-struct Move {
+pub struct Move {
     from: Coord,
     to: Coord,
     capture: bool,
@@ -70,7 +72,7 @@ impl std::fmt::Display for Move {
     }
 }
 
-pub fn get_piece_movements(position: &Position) -> /*Vec<Move>*/ () {
+pub fn get_piece_movements(position: &Position) -> Vec<Move> {
 
     // todo get piece on coord
 
@@ -111,13 +113,29 @@ pub fn get_piece_movements(position: &Position) -> /*Vec<Move>*/ () {
         }
     }
 
-    println!("Movements for {}:", if direction > 0 { "white" } else { "black" });
-    for m in movements.iter() {
-        println!("{}", m);
+    movements
+
+}
+
+pub fn make_move(position: &mut Position, mv: &Move) -> /*Position*/ () {
+    if !mv.capture {
+        // if moving pawn up 2, set en_passant_target
+        let from = mv.from.to_index();
+        let to = mv.to.to_index();
+
+        position.make_move(from, to);
+
+        position.print();
+    } else {
+
+        // if en_passant capture {
+        //      lift piece after en_passant target
+        // } else {
+        //      lift piece on to
+        // }
+        
+        // move piece on from to to
     }
-
-    position.print();
-
 }
 
 fn get_pawn_movements(position: &Position, direction: i32, index: i32) -> Vec<Move> {

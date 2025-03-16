@@ -169,7 +169,13 @@ pub fn evaluate(fen: &str, depth: u8) -> f32 {
     //  loop through all piece types and get respective piece movement
     //      you need board state like _en_passant_target for possible en passant moves and _castling if it is available
 
-    get_piece_movements(&position);
+    let movements = get_piece_movements(&position);
+
+    for m in movements.iter() {
+        println!("{}", m);
+    }
+
+    position.print();
 
     eval
 }

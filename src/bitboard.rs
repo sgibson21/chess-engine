@@ -57,8 +57,34 @@ impl BitBoard {
         (0..64).filter(|i| self.0 >> i & 1 == 1).collect()
     }
 
+    pub fn set_index(&mut self, index: u8) -> BitBoard {
+        let mut byte = 1; // start with bit in index 0
+        byte <<= index;        // shift the bit left by the index
+        self.0 |= byte;        // set that bit in the BitBoard
+
+        *self
+    }
+
+    pub fn unset_index(&mut self, index: u8) -> BitBoard {
+        let mut byte = 0;           // start with bits all 0
+        byte = !byte;                    // flip all bits
+
+        let mut byte_to_toggle = 1; // start with bit in index 0
+        byte_to_toggle <<= index;        // shift the bit left by the index
+
+        byte ^= byte_to_toggle;          // toggle the byte at the index to a 0
+
+        self.0 &= byte;                  // unset the bit
+
+        *self
+    }
+
     pub fn print(self) {
         println!("Board:\t{:#066b}", (self).0)
+    }
+
+    pub fn format(self) -> String {
+        format!("{:#066b}", self.0)
     }
 }
 
@@ -107,4 +133,65 @@ pub fn asci_board_indicies() -> String {
     }
 
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BitBoard;
+
+
+    #[test]
+    fn set_index_1() {
+        // 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001
+        let mut bb = BitBoard(1);
+
+        let expected = BitBoard(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1001);
+        let actual = bb.set_index(3);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn set_index_2() {
+        // 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001
+        let mut bb = BitBoard(1);
+
+        let expected = BitBoard(0b1000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001);
+        let actual = bb.set_index(63);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn unset_index_1() {
+        // 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001
+        let mut bb = BitBoard(1);
+
+        let expected = BitBoard(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000);
+        let actual = bb.unset_index(0);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn unset_index_2() {
+        // 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1000
+        let mut bb = BitBoard(8);
+
+        let expected = BitBoard(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000);
+        let actual = bb.unset_index(3);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn unset_index_3() {
+        // 0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_1001
+        let mut bb = BitBoard(9);
+
+        let expected = BitBoard(0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001);
+        let actual = bb.unset_index(3);
+
+        assert_eq!(expected, actual);
+    }
 }
