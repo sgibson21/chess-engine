@@ -8,7 +8,7 @@ use super::is_attacked;
  /**
   * A second, separate way to do proper move notation { piece: Piece, toCoord, capture: boolean, castling: Q | K, promotionPiece: Piece, disambiguation: file | rank | { file, rank } }
   */
-  #[derive(Debug)]
+  #[derive(Debug, PartialEq)]
 pub enum Piece {
     P,
     N,
@@ -119,11 +119,8 @@ pub fn get_piece_movements(position: &Position) -> Vec<Move> {
 
 pub fn make_move(position: &mut Position, mv: &Move) -> /*Position*/ () {
     if !mv.capture {
-        // if moving pawn up 2, set en_passant_target
-        let from = mv.from.to_index();
-        let to = mv.to.to_index();
 
-        position.make_move(from, to);
+        position.make_move(&mv.from, &mv.to);
 
         position.print();
     } else {

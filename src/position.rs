@@ -217,32 +217,48 @@ impl Position {
         self.get_black_pieces() & self.get_kings()
     }
 
-    pub fn make_move(&mut self, from: i32, to: i32) -> Result<i32, String> {
-        let o_side = self.get_side(from);
+    pub fn make_move(&mut self, from: &Coord, to: &Coord) -> Result<i32, String> {
+        let from_index = from.to_index();
+        let to_index = to.to_index();
+        let o_side = self.get_side(from_index);
         if let Some(side) = o_side {
-            let o_piece = self.get_piece(from);
+            let o_piece = self.get_piece(from_index);
             if let Some(piece) = o_piece  {
+
+                // TODO: if promoting, place the selected piece
+
+                // if moving pawn up 2, set en_passant_target
+                if piece == Piece::P {
+                    let diff = from.rank_diff(to);
+                    if diff == 2 {
+                        let en_passant_target_rank = if from.1 < to.1 { from.1 + 1 } else { from.1 - 1 };
+                        self.en_passant_target = Some(Coord(from.0, en_passant_target_rank));
+                    }
+                }
+
                 // place the piece first because we need to know the side and type
-                self.place_piece(to, side, piece);
+                self.place_piece(to_index, side, piece);
+
+                // TODO: if castling, move rook to other side
 
                 // remove the piece moved after it was placed
-                self.remove_piece(from);
+                self.remove_piece(from_index);
 
-                return Ok(to);
+                return Ok(to_index);
             }
         }
 
         Err(format!("No Piece found at {}", from))
     }
 
-    pub fn get_side(&self, index: i32) -> Option<Side> {
+    fn get_side(&self, index: i32) -> Option<Side> {
         if self.has_piece(index) {
             if self.is_white(index) { return Some(Side::White); } else { return Some(Side::Black); }
         }
         None
     }
 
-    pub fn get_piece(&self, index: i32) -> Option<Piece> {
+    fn get_piece(&self, index: i32) -> Option<Piece> {
         if self.is_pawn(index) {
             return Some(Piece::P);
         } else if self.is_bishop(index) {
@@ -431,11 +447,43 @@ mod tests {
 
         position.print();
     
-        let result = position.make_move(from_coord.to_index(), to_coord.to_index());
+        let result = position.make_move(&from_coord, &to_coord);
     
         position.print();
         
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn make_move_should_set_en_passant_target_as_white() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let from_coord = Coord('e',2);
+        let to_coord = Coord('e',4);
+
+        let result = position.make_move(&from_coord, &to_coord);
+        
+        assert!(result.is_ok());
+        assert!(position.en_passant_target.is_some());
+        let en_passant_target = position.en_passant_target.unwrap();
+        assert_eq!(en_passant_target.0, 'e');
+        assert_eq!(en_passant_target.1, 3);
+    }
+
+    #[test]
+    fn make_move_should_set_en_passant_target_as_black() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let from_coord = Coord('e',7);
+        let to_coord = Coord('e',5);
+
+        let result = position.make_move(&from_coord, &to_coord);
+        
+        assert!(result.is_ok());
+        assert!(position.en_passant_target.is_some());
+        let en_passant_target = position.en_passant_target.unwrap();
+        assert_eq!(en_passant_target.0, 'e');
+        assert_eq!(en_passant_target.1, 6);
     }
 
     #[test]
@@ -445,10 +493,10 @@ mod tests {
         let from_coord = Coord('e',3);
         let to_coord = Coord('e',4);
     
-        let result = position.make_move(from_coord.to_index(), to_coord.to_index());
+        let result = position.make_move(&from_coord, &to_coord);
 
         assert!(result.is_err());
-        assert_eq!(result, Err(String::from("No Piece found at 44")));
+        assert_eq!(result, Err(String::from("No Piece found at e3")));
     }
 }
 

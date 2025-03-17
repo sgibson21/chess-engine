@@ -94,6 +94,10 @@ impl Coord {
         }
     }
 
+    pub fn rank_diff(&self, other: &Coord) -> i32 {
+        (self.1 as i32 - other.1 as i32).abs()
+    }
+
     //
     // 0  1  2  3  4  5  6  7
     // 8  9  10 11 12 13 14 15
