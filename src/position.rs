@@ -3,7 +3,7 @@
 use crate::bitboard::BitBoard;
 use crate::fen::{to_fen, fen_to_asci_board};
 use crate::utils::{coord_from_index};
-use crate::board_navigator::{Coord, Piece};
+use crate::board_navigator::{Coord, Piece, CastlingSide};
 use crate::pieces::Side;
 
 use std::fmt;
@@ -217,7 +217,7 @@ impl Position {
         self.get_black_pieces() & self.get_kings()
     }
 
-    pub fn make_move(&mut self, from: &Coord, to: &Coord) -> Result<i32, String> {
+    pub fn make_move(&mut self, from: &Coord, to: &Coord, castling: &Option<CastlingSide>) -> Result<i32, String> {
         let from_index = from.to_index();
         let to_index = to.to_index();
         let o_side = self.get_side(from_index);
@@ -239,7 +239,8 @@ impl Position {
                 // place the piece first because we need to know the side and type
                 self.place_piece(to_index, side, piece);
 
-                // TODO: if castling, move rook to other side
+                // if castling, move rook to other side
+                self.castle(castling);
 
                 // remove the piece moved after it was placed
                 self.remove_piece(from_index);
@@ -320,6 +321,45 @@ impl Position {
         };
 
         piece_bitboard.set_index(index as u8);
+    }
+
+    fn castle(&mut self, castling: &Option<CastlingSide>) {
+        if let Some(castling_side) = castling {
+            match castling_side {
+                CastlingSide::WK => {
+                    let result = self.make_move(&Coord('h', 1), &Coord('f', 1), &None);
+                    if result.is_ok() {
+                        // castling revokes rights to castle again
+                        self.castling.K = false;
+                        self.castling.Q = false;
+                    }
+                },
+                CastlingSide::WQ => {
+                    let result = self.make_move(&Coord('a', 1), &Coord('d', 1), &None);
+                    if result.is_ok() {
+                        // castling revokes rights to castle again
+                        self.castling.Q = false;
+                        self.castling.K = false;
+                    }
+                }
+                CastlingSide::BK => {
+                    let result = self.make_move(&Coord('h', 8), &Coord('f', 8), &None);
+                    if result.is_ok() {
+                        // castling revokes rights to castle again
+                        self.castling.k = false;
+                        self.castling.q = false;
+                    }
+                }
+                CastlingSide::BQ => {
+                    let result = self.make_move(&Coord('a', 8), &Coord('d', 8), &None);
+                    if result.is_ok() {
+                        // castling revokes rights to castle again
+                        self.castling.q = false;
+                        self.castling.k = false;
+                    }
+                }
+            };
+        }
     }
 
     fn get_side_bitboard(&mut self, index: i32) -> &mut BitBoard {
@@ -410,7 +450,7 @@ impl fmt::Debug for Castling {
 #[cfg(test)]
 mod tests {
     use super::{Side, Piece, Coord};
-    use crate::fen::{from_fen, fen_to_asci_board};
+    use crate::{board_navigator::CastlingSide, fen::{fen_to_asci_board, from_fen}};
 
     #[test]
     fn remove_piece() {
@@ -447,11 +487,24 @@ mod tests {
 
         position.print();
     
-        let result = position.make_move(&from_coord, &to_coord);
+        let result = position.make_move(&from_coord, &to_coord, &None);
     
         position.print();
         
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn make_move_fail() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+        let from_coord = Coord('e',3);
+        let to_coord = Coord('e',4);
+    
+        let result = position.make_move(&from_coord, &to_coord, &None);
+
+        assert!(result.is_err());
+        assert_eq!(result, Err(String::from("No Piece found at e3")));
     }
 
     #[test]
@@ -461,7 +514,7 @@ mod tests {
         let from_coord = Coord('e',2);
         let to_coord = Coord('e',4);
 
-        let result = position.make_move(&from_coord, &to_coord);
+        let result = position.make_move(&from_coord, &to_coord, &None);
         
         assert!(result.is_ok());
         assert!(position.en_passant_target.is_some());
@@ -477,7 +530,7 @@ mod tests {
         let from_coord = Coord('e',7);
         let to_coord = Coord('e',5);
 
-        let result = position.make_move(&from_coord, &to_coord);
+        let result = position.make_move(&from_coord, &to_coord, &None);
         
         assert!(result.is_ok());
         assert!(position.en_passant_target.is_some());
@@ -487,16 +540,77 @@ mod tests {
     }
 
     #[test]
-    fn make_move_fail() {
-        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+    fn make_move_castling_wk() {
+        let fen = "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq -";
         let mut position = from_fen(fen);
-        let from_coord = Coord('e',3);
-        let to_coord = Coord('e',4);
-    
-        let result = position.make_move(&from_coord, &to_coord);
+        let from = Coord('e',1);
+        let to = Coord('g',1);
 
-        assert!(result.is_err());
-        assert_eq!(result, Err(String::from("No Piece found at e3")));
+        let result = position.make_move(&from, &to, &Some(CastlingSide::WK));
+
+        position.print();
+        
+        assert!(result.is_ok());
+        assert!(position.is_white(Coord('f',1).to_index()));
+        assert!(position.is_rook(Coord('f',1).to_index()));
+        assert_eq!(position.castling.K, false);
+        assert_eq!(position.castling.Q, false);
+    }
+
+    #[test]
+    fn make_move_castling_bk() {
+        let fen = "r3k2r/pppq1ppp/2np1n2/2b1p1B1/2B1P1b1/2NP1N2/PPPQ1PPP/2KR3R b kq -";
+        let mut position = from_fen(fen);
+        let from = Coord('e',8);
+        let to = Coord('g',8);
+
+        let result = position.make_move(&from, &to, &Some(CastlingSide::BK));
+
+        position.print();
+        
+        assert!(result.is_ok());
+        assert!(position.is_black(Coord('f',8).to_index()));
+        assert!(position.is_rook(Coord('f',8).to_index()));
+        assert_eq!(position.castling.k, false);
+        assert_eq!(position.castling.q, false);
+    }
+
+    #[test]
+    fn make_move_castling_wq() {
+        let fen = "r3k2r/pppq1ppp/2np1n2/2b1p1B1/2B1P1b1/2NP1N2/PPPQ1PPP/R3K2R w KQkq -";
+        let mut position = from_fen(fen);
+        let from = Coord('e',1);
+        let to = Coord('c',1);
+
+        let result = position.make_move(&from, &to, &Some(CastlingSide::WQ));
+
+        position.print();
+        
+        assert!(result.is_ok());
+        assert!(position.is_white(Coord('d',1).to_index()));
+        assert!(position.is_rook(Coord('d',1).to_index()));
+        assert_eq!(position.castling.Q, false);
+        assert_eq!(position.castling.K, false);
+    }
+
+    #[test]
+    fn make_move_castling_bq() {
+        let fen = "r3k2r/pppq1ppp/2np1n2/2b1p1B1/2B1P1b1/2NP1N2/PPPQ1PPP/2KR3R b kq -";
+        let mut position = from_fen(fen);
+        let from = Coord('e',8);
+        let to = Coord('c',8);
+
+        position.print();
+
+        let result = position.make_move(&from, &to, &Some(CastlingSide::BQ));
+
+        position.print();
+        
+        assert!(result.is_ok());
+        assert!(position.is_black(Coord('d',8).to_index()));
+        assert!(position.is_rook(Coord('d',8).to_index()));
+        assert_eq!(position.castling.q, false);
+        assert_eq!(position.castling.k, false);
     }
 }
 

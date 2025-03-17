@@ -32,7 +32,7 @@ impl std::fmt::Display for Piece {
 }
 
 #[derive(Debug)]
-enum CastlingSide {
+pub enum CastlingSide {
     WK,
     WQ,
     BK,
@@ -120,7 +120,7 @@ pub fn get_piece_movements(position: &Position) -> Vec<Move> {
 pub fn make_move(position: &mut Position, mv: &Move) -> /*Position*/ () {
     if !mv.capture {
 
-        position.make_move(&mv.from, &mv.to);
+        position.make_move(&mv.from, &mv.to, &mv.castling);
 
         position.print();
     } else {
