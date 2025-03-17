@@ -118,21 +118,17 @@ pub fn get_piece_movements(position: &Position) -> Vec<Move> {
 }
 
 pub fn make_move(position: &mut Position, mv: &Move) -> /*Position*/ () {
-    if !mv.capture {
-
-        position.make_move(&mv.from, &mv.to, &mv.castling);
-
-        position.print();
-    } else {
-
-        // if en_passant capture {
-        //      lift piece after en_passant target
-        // } else {
-        //      lift piece on to
-        // }
-        
-        // move piece on from to to
+    if mv.capture {
+        if mv.en_passant {
+            position.remove_pawn_by_en_passant();
+        } else {
+            position.remove_piece(mv.to.to_index());
+        }
     }
+
+    let result = position.make_move(&mv.from, &mv.to, &mv.castling);
+
+    position.print();
 }
 
 fn get_pawn_movements(position: &Position, direction: i32, index: i32) -> Vec<Move> {

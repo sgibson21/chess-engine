@@ -252,28 +252,31 @@ impl Position {
         Err(format!("No Piece found at {}", from))
     }
 
-    fn get_side(&self, index: i32) -> Option<Side> {
+    pub fn remove_piece(&mut self, index: i32) {
         if self.has_piece(index) {
-            if self.is_white(index) { return Some(Side::White); } else { return Some(Side::Black); }
+            let side_bb = self.get_side_bitboard(index);
+            side_bb.unset_index(index as u8);
+            let piece_bb_opt = self.get_piece_bitboard(index);
+            if let Some(piece_bb) = piece_bb_opt {
+                piece_bb.unset_index(index as u8);
+            }
         }
-        None
     }
 
-    fn get_piece(&self, index: i32) -> Option<Piece> {
-        if self.is_pawn(index) {
-            return Some(Piece::P);
-        } else if self.is_bishop(index) {
-            return Some(Piece::B);
-        } else if self.is_knight(index) {
-            return Some(Piece::N);
-        } else if self.is_rook(index) {
-            return Some(Piece::R);
-        } else if self.is_queen(index) {
-            return Some(Piece::Q);
-        } else if self.is_king(index) {
-            return Some(Piece::K);
+    /// removes the pawn ahead of the en_passant_targer, that had moved by 2 squares
+    /// the pawn will either be north or south of the en_passant_target
+    pub fn remove_pawn_by_en_passant(&mut self) {
+        if let Some(en_passant_target) = &self.en_passant_target {
+            if let Some(north) = en_passant_target.n(1, 1) {
+                if self.has_piece(north.to_index()) {
+                    self.remove_piece(north.to_index());
+                    self.en_passant_target = None;
+                } else if let Some(south) = en_passant_target.s(1, 1) {
+                    self.remove_piece(south.to_index());
+                    self.en_passant_target = None;
+                }
+            }
         }
-        None
     }
 
     pub fn print(&self) {
@@ -285,17 +288,6 @@ impl Position {
         println!("Active Colour: {:?}", self.active_colour);
         println!("Castling: {:?}", self.castling);
         println!("En Passant: {:?}", self.en_passant_target);
-    }
-
-    fn remove_piece(&mut self, index: i32) {
-        if self.has_piece(index) {
-            let side_bb = self.get_side_bitboard(index);
-            side_bb.unset_index(index as u8);
-            let piece_bb_opt = self.get_piece_bitboard(index);
-            if let Some(piece_bb) = piece_bb_opt {
-                piece_bb.unset_index(index as u8);
-            }
-        }
     }
 
     fn place_piece(&mut self, index: i32, side: Side, piece: Piece) {
@@ -360,6 +352,30 @@ impl Position {
                 }
             };
         }
+    }
+
+    fn get_side(&self, index: i32) -> Option<Side> {
+        if self.has_piece(index) {
+            if self.is_white(index) { return Some(Side::White); } else { return Some(Side::Black); }
+        }
+        None
+    }
+
+    fn get_piece(&self, index: i32) -> Option<Piece> {
+        if self.is_pawn(index) {
+            return Some(Piece::P);
+        } else if self.is_bishop(index) {
+            return Some(Piece::B);
+        } else if self.is_knight(index) {
+            return Some(Piece::N);
+        } else if self.is_rook(index) {
+            return Some(Piece::R);
+        } else if self.is_queen(index) {
+            return Some(Piece::Q);
+        } else if self.is_king(index) {
+            return Some(Piece::K);
+        }
+        None
     }
 
     fn get_side_bitboard(&mut self, index: i32) -> &mut BitBoard {
@@ -611,6 +627,24 @@ mod tests {
         assert!(position.is_rook(Coord('d',8).to_index()));
         assert_eq!(position.castling.q, false);
         assert_eq!(position.castling.k, false);
+    }
+
+    #[test]
+    fn remove_pawn_by_en_passant() {
+        let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3";
+        let mut position = from_fen(fen);
+
+        let coord_of_pawn_to_be_removed = Coord('e',4);
+        assert!(position.has_piece(coord_of_pawn_to_be_removed.to_index()));
+        position.print();
+
+        let result = position.remove_pawn_by_en_passant();
+
+        assert!(!position.has_piece(coord_of_pawn_to_be_removed.to_index()));
+
+        position.print();
+
+        assert!(position.en_passant_target.is_none());
     }
 }
 
