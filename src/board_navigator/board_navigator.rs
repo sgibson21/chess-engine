@@ -52,6 +52,18 @@ pub struct Move {
     promotion: Option<Piece>, // optional
 }
 
+impl Move {
+    pub fn get_from(&self) -> &Coord {
+        &self.from
+    }
+    pub fn get_to(&self) -> &Coord {
+        &self.to
+    }
+    pub fn get_castling(&self) -> &Option<CastlingSide> {
+        &self.castling
+    }
+}
+
 impl std::fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let delim = if self.capture { "X" } else { "->" };
@@ -117,7 +129,7 @@ pub fn get_piece_movements(position: &Position) -> Vec<Move> {
 
 }
 
-pub fn make_move(position: &mut Position, mv: &Move) -> /*Position*/ () {
+pub fn make_move(position: &mut Position, mv: &Move) {
     if mv.capture {
         if mv.en_passant {
             position.remove_pawn_by_en_passant();
@@ -126,9 +138,10 @@ pub fn make_move(position: &mut Position, mv: &Move) -> /*Position*/ () {
         }
     }
 
-    let result = position.make_move(&mv.from, &mv.to, &mv.castling);
-
-    position.print();
+    match position.make_move(&mv.from, &mv.to, &mv.castling) {
+        Ok(_) => position.switch_player_turn(),
+        Err(err) => println!("Error making move: {}", err),
+    };
 }
 
 fn get_pawn_movements(position: &Position, direction: i32, index: i32) -> Vec<Move> {
@@ -504,7 +517,6 @@ fn get_pawn_promotion_movements(from: Coord, to: Coord, capture: bool) -> Vec<Mo
         Piece::B,
         Piece::R,
         Piece::Q,
-        Piece::K,
     ] {
         movements.push(
             Move {

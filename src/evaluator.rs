@@ -3,6 +3,7 @@ use crate::pieces::Side;
 use crate::position::Position;
 use crate::board_navigator::get_piece_movements;
 use crate::fen::from_fen;
+use crate::board_navigator::Move;
 
 struct PieceValue;
 impl PieceValue {
@@ -157,9 +158,10 @@ impl BlackPieceAdjustments {
 }
 
 pub fn evaluate(fen: &str, depth: u8) -> f32 {
-    let position = from_fen(fen);
-
-    let eval = evaluate_position(&position);
+    let mut position = from_fen(fen);
+    let _eval = evaluate_position(&position);
+    println!("Initial eval: {}", _eval);
+    return _eval;
 
     // todo get which player's turn it is so you know what colour pieces to get_piece_movement for
     // Side::WHITE or Side::BLACK
@@ -169,15 +171,43 @@ pub fn evaluate(fen: &str, depth: u8) -> f32 {
     //  loop through all piece types and get respective piece movement
     //      you need board state like _en_passant_target for possible en passant moves and _castling if it is available
 
-    let movements = get_piece_movements(&position);
+    // let mut highest_eval: f32 = -1000.0;
+    // let mut lowest_eval: f32 = 1000.0;
+    // let mut best_move: Option<Move> = None;
+    // for _ in [0..depth] {
+    //     let movements = get_piece_movements(&position);
+    //     for movement in movements {
+    //         // println!("Move: {}", movement);
+    //         // clone the position for each move so we are making moves all from the same starting position of this players move
+    //         let mut position = position.clone();
+    //         if let Ok(_) = position.make_move(movement.get_from(), movement.get_to(), movement.get_castling()) {
+    //             let eval = evaluate_position(&position);
+    
+    //             println!("Checking eval: for {}: {}", movement, eval);
+    //             if position.active_colour == Side::White && eval > highest_eval {
+    //                 highest_eval = eval;
+    //                 best_move = Some(movement);
+    //             } else if position.active_colour == Side::Black && eval < lowest_eval {
+    //                 lowest_eval = eval;
+    //                 best_move = Some(movement);
+    //             }
+    //         }
+    //     }
+    // }
 
-    for m in movements.iter() {
-        println!("{}", m);
-    }
+    // if let Some(best_move) = best_move {
+    //     println!("\nBest Move: {}", best_move);
+    //     position.print();
+    //     if let Ok(_) = position.make_move(best_move.get_from(), best_move.get_to(), best_move.get_castling()) {
+    //         position.print();
+    //     }
+    // }
 
-    position.print();
-
-    eval
+    // if position.active_colour == Side::White {
+    //     return highest_eval;
+    // } else {
+    //     return lowest_eval;
+    // }
 }
 
 fn evaluate_position(position: &Position) -> f32 {
@@ -266,7 +296,7 @@ fn calc_material(position: &Position, side: Side) -> f32 {
         coloured_rook_count +
         coloured_queen_count;
 
-    println!("total: {}", total);
+    // println!("total: {}", total);
     
     total
 }
@@ -277,8 +307,204 @@ fn get_adjusted_material(coloured_pieces: BitBoard, piece_value: f32, adjustment
     for (i, adjustment) in adjustments.iter().enumerate() {
         if coloured_pieces.0 >> i & 1 == 1 {
             coloured_material_value += piece_value * adjustment;
-            println!("piece worth {} on {} adjusted by {}:\t{}", piece_value, i, adjustment, coloured_material_value);
+            // println!("piece worth {} on {} adjusted by {}:\t{}", piece_value, i, adjustment, coloured_material_value);
         }
     }
     coloured_material_value
+}
+
+fn get_best_line<'a>(depth: u8, position: &Position) -> Result<(f32, Vec<Move>), String> {
+    let movements = get_piece_movements(&position);
+    let mut best_moves = Vec::new();
+
+    let mut highest_eval: f32 = -1000.0;
+    let mut lowest_eval: f32 = 1000.0;
+
+    for movement in movements {
+        // clone the position for each move so we are making moves all from the same starting position of this players move
+        let mut position = position.clone();
+        print!("{colour: >padding$} Move: {movement: <20}", colour=position.active_colour, padding=depth as usize);
+
+        match position.make_move(movement.get_from(), movement.get_to(), movement.get_castling()) {
+            Ok(_) => {
+                if depth == 0 {
+                    let eval = evaluate_position(&position);
+                    println!("{}eval: {}", pad(4), eval);
+
+                    if position.active_colour == Side::White && eval > highest_eval {
+                        println!("\n{}[ Best move found for White ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                        highest_eval = eval;
+                        best_moves = vec![movement];
+                    } else if position.active_colour == Side::Black && eval < lowest_eval {
+                        println!("\n{}[ Best move found for Black ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                        lowest_eval = eval;
+                        best_moves = vec![movement];
+                    }
+                } else {
+                    position.switch_player_turn();
+                    match get_best_line(depth - 1, &position) {
+                        Ok((eval, responses)) => {
+                            // switch again after coming back up the tree
+                            position.switch_player_turn();
+
+                            // NOTE: when you find the best move (as in the worst, best response from the opponent) then that "best" response
+                            // is the follow up move to this player's best move, and that is what needs to be returned!
+
+                            // when getting the eval of the next move, the best move is the move that the other player will make
+                            if position.active_colour == Side::White && eval > highest_eval {
+                                println!("\n{}[ Best move found for White ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                                println!("Black's response is: {:#?}", responses);
+                                highest_eval = eval;
+                                best_moves = vec![movement];
+                                for res in responses {
+                                    best_moves.push(res);
+                                }
+                            } else if position.active_colour == Side::Black && eval < lowest_eval {
+                                println!("\n{}[ Best move found for Black ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                                println!("White's response is: {:#?}", responses);
+                                lowest_eval = eval;
+                                best_moves = vec![movement];
+                                for res in responses {
+                                    best_moves.push(res);
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            return Err(e);
+                        },
+                    }
+                }
+            },
+            Err(e) => {
+                return Err(e);
+            }
+        }
+    }
+
+    return Ok((
+        if position.active_colour == Side::White { highest_eval } else { lowest_eval },
+        best_moves
+    ));
+}
+
+fn pad(n: u8) -> String {
+    (0..n*2).map(|_| "    ").collect::<String>()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{evaluator::get_best_line, fen::from_fen};
+
+    #[test]
+    fn get_best_line_test_should_choose_the_best_next_move() {
+        let fen = "1k6/8/8/3p4/4P3/8/8/1K6 w - -";
+        let position = from_fen(fen);
+
+        let depth: u8 = 0;
+        let result = get_best_line(depth, &position);
+
+        assert!(result.is_ok());
+        match result {
+            Ok((eval, moves)) => {
+                assert_eq!(moves.len(), 1);
+                println!("Eval: {}, Moves: {:#?}", eval, moves);
+                match moves.get(0) {
+                    Some(m) => {
+                        assert_eq!(m.get_from().to_string(), "e4");
+                        assert_eq!(m.get_to().to_string(), "d5");
+                    },
+                    None => assert!(false),
+                }
+            },
+            Err(_)=> assert!(false),
+        }
+
+    }
+
+    #[test]
+    fn get_best_line_test_b() {
+        let fen = "8/8/8/3p4/1P2P3/k7/8/1K6 w - -";
+        let position = from_fen(fen);
+
+        // expected moves:
+        // exd5, kxb4
+
+        let depth: u8 = 1;
+        let result = get_best_line(depth, &position);
+
+        assert!(result.is_ok());
+
+        match result {
+            Ok((eval, moves)) => {
+                assert_eq!(moves.len(), 2);
+                println!("Eval: {}, Moves: {:#?}", eval, moves);
+
+                match moves.get(0) {
+                    Some(m) => {
+                        assert_eq!(m.get_from().to_string(), "e4");
+                        assert_eq!(m.get_to().to_string(), "d5");
+                    },
+                    None => assert!(false),
+                }
+
+                match moves.get(1) {
+                    Some(m) => {
+                        assert_eq!(m.get_from().to_string(), "a3");
+                        assert_eq!(m.get_to().to_string(), "b4");
+                    },
+                    None => assert!(false),
+                }
+            },
+            Err(_) => {}
+        }
+    }
+
+    #[test]
+    fn get_best_line_test_c() {
+        let fen = "1k6/4P1b1/5q2/8/7B/8/8/1K6 w - -";
+        let position = from_fen(fen);
+
+        // expected moves:
+        // Bxf6, bxf6
+        // e8=Q
+
+        let depth: u8 = 2;
+        let result = get_best_line(depth, &position);
+
+        assert!(result.is_ok());
+
+        match result {
+            Ok((eval, moves)) => {
+                assert_eq!(moves.len(), 3);
+                println!("Eval: {}, Moves: {:#?}", eval, moves);
+
+                match moves.get(0) {
+                    Some(m) => {
+                        assert_eq!(m.get_from().to_string(), "h4");
+                        assert_eq!(m.get_to().to_string(), "f6");
+                    },
+                    None => assert!(false),
+                }
+
+                match moves.get(1) {
+                    Some(m) => {
+                        assert_eq!(m.get_from().to_string(), "g7");
+                        assert_eq!(m.get_to().to_string(), "f6");
+                    },
+                    None => assert!(false),
+                }
+
+                // TODO: implement promotion in position.make_move
+                match moves.get(2) {
+                    Some(m) => {
+                        // assert_eq!(m.get_from().to_string(), "e7");
+                        // assert_eq!(m.get_to().to_string(), "e8");
+                        // assert promotion
+                    },
+                    None => assert!(false),
+                }
+            },
+            Err(_) => {}
+        }
+    }
 }

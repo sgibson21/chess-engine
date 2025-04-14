@@ -96,7 +96,7 @@ pub fn is_attacked(position: &Position, coord: &Coord, direction: i32) -> bool {
                     let next_coord_index = c.to_index();
 
                     if has_attacking_piece(position, next_coord_index, direction, attack_vector.piece_types) {
-                        println!("piece on {} is attacking {}", coord_from_index(next_coord_index), coord);
+                        // println!("piece on {} is attacking {}", coord_from_index(next_coord_index), coord);
                         return true;
                     }
                 }

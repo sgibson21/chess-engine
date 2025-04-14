@@ -1,8 +1,17 @@
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Side {
     White,
     Black,
+}
+
+impl std::fmt::Display for Side {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Side::White => write!(f, "White"),
+            Side::Black => write!(f, "Black"),
+        }
+    }
 }
 
 pub struct Pieces;

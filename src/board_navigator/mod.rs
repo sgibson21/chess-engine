@@ -11,6 +11,7 @@ mod coord;
 pub use board_navigator::get_piece_movements;
 pub use board_navigator::Piece;
 pub use board_navigator::CastlingSide;
+pub use board_navigator::Move;
 pub use coord::Coord;
 
 use board_scout::is_attacked;

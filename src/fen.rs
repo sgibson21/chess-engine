@@ -182,9 +182,6 @@ fn get_en_passant_target_coord(en_passant_target: &str) -> Option<Coord> {
     let file = en_passant_target_chars.next().unwrap();
     let rank_char = en_passant_target_chars.next().unwrap();
 
-    println!("en_passant_target: '{}'", en_passant_target);
-    println!("File: {}, Rank: {}", file, rank_char);
-
     const RADIX: u32 = 10;
     let rank = rank_char.to_digit(RADIX).unwrap() as u8;
 

@@ -279,6 +279,13 @@ impl Position {
         }
     }
 
+    pub fn switch_player_turn(&mut self) {
+        match self.active_colour {
+            Side::White => self.active_colour = Side::Black,
+            Side::Black => self.active_colour = Side::White,
+        };
+    }
+
     pub fn print(&self) {
         let built_fen = to_fen(self.clone());
         println!("\nFEN built from position:\n\t{}", built_fen);
@@ -645,6 +652,30 @@ mod tests {
         position.print();
 
         assert!(position.en_passant_target.is_none());
+    }
+
+    #[test]
+    fn switch_player_turn_white_to_black() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+        let mut position = from_fen(fen);
+
+        assert_eq!(position.active_colour, Side::White);
+
+        position.switch_player_turn();
+
+        assert_eq!(position.active_colour, Side::Black);
+    }
+
+    #[test]
+    fn switch_player_turn_black_to_white() {
+        let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3";
+        let mut position = from_fen(fen);
+
+        assert_eq!(position.active_colour, Side::Black);
+
+        position.switch_player_turn();
+
+        assert_eq!(position.active_colour, Side::White);
     }
 }
 
