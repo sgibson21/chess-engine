@@ -157,57 +157,9 @@ impl BlackPieceAdjustments {
     const QUEEN: [f32; 64] = BLACK_QUEEN_ADJ;
 }
 
-pub fn evaluate(fen: &str, depth: u8) -> f32 {
-    let mut position = from_fen(fen);
-    let _eval = evaluate_position(&position);
-    println!("Initial eval: {}", _eval);
-    return _eval;
-
-    // todo get which player's turn it is so you know what colour pieces to get_piece_movement for
-    // Side::WHITE or Side::BLACK
-
-    // 1. get all possible moves of a position
-    //  we already know the piece type as there is a BitBoard for each type
-    //  loop through all piece types and get respective piece movement
-    //      you need board state like _en_passant_target for possible en passant moves and _castling if it is available
-
-    // let mut highest_eval: f32 = -1000.0;
-    // let mut lowest_eval: f32 = 1000.0;
-    // let mut best_move: Option<Move> = None;
-    // for _ in [0..depth] {
-    //     let movements = get_piece_movements(&position);
-    //     for movement in movements {
-    //         // println!("Move: {}", movement);
-    //         // clone the position for each move so we are making moves all from the same starting position of this players move
-    //         let mut position = position.clone();
-    //         if let Ok(_) = position.make_move(movement.get_from(), movement.get_to(), movement.get_castling()) {
-    //             let eval = evaluate_position(&position);
-    
-    //             println!("Checking eval: for {}: {}", movement, eval);
-    //             if position.active_colour == Side::White && eval > highest_eval {
-    //                 highest_eval = eval;
-    //                 best_move = Some(movement);
-    //             } else if position.active_colour == Side::Black && eval < lowest_eval {
-    //                 lowest_eval = eval;
-    //                 best_move = Some(movement);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // if let Some(best_move) = best_move {
-    //     println!("\nBest Move: {}", best_move);
-    //     position.print();
-    //     if let Ok(_) = position.make_move(best_move.get_from(), best_move.get_to(), best_move.get_castling()) {
-    //         position.print();
-    //     }
-    // }
-
-    // if position.active_colour == Side::White {
-    //     return highest_eval;
-    // } else {
-    //     return lowest_eval;
-    // }
+pub fn evaluate(fen: &str, depth: u8) -> Result<(f32, Vec<Move>), String> {
+    let position = from_fen(fen);
+    return get_best_line(depth, &position);
 }
 
 fn evaluate_position(position: &Position) -> f32 {
@@ -313,7 +265,7 @@ fn get_adjusted_material(coloured_pieces: BitBoard, piece_value: f32, adjustment
     coloured_material_value
 }
 
-fn get_best_line<'a>(depth: u8, position: &Position) -> Result<(f32, Vec<Move>), String> {
+fn get_best_line(depth: u8, position: &Position) -> Result<(f32, Vec<Move>), String> {
     let movements = get_piece_movements(&position);
     let mut best_moves = Vec::new();
 
@@ -323,20 +275,20 @@ fn get_best_line<'a>(depth: u8, position: &Position) -> Result<(f32, Vec<Move>),
     for movement in movements {
         // clone the position for each move so we are making moves all from the same starting position of this players move
         let mut position = position.clone();
-        print!("{colour: >padding$} Move: {movement: <20}", colour=position.active_colour, padding=depth as usize);
+        // print!("{colour: >padding$} Move: {movement: <20}", colour=position.active_colour, padding=depth as usize);
 
         match position.make_move(movement.get_from(), movement.get_to(), movement.get_castling()) {
             Ok(_) => {
                 if depth == 0 {
                     let eval = evaluate_position(&position);
-                    println!("{}eval: {}", pad(4), eval);
+                    // println!("{}eval: {}", pad(4), eval);
 
                     if position.active_colour == Side::White && eval > highest_eval {
-                        println!("\n{}[ Best move found for White ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                        // println!("\n{}[ Best move found for White ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
                         highest_eval = eval;
                         best_moves = vec![movement];
                     } else if position.active_colour == Side::Black && eval < lowest_eval {
-                        println!("\n{}[ Best move found for Black ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                        // println!("\n{}[ Best move found for Black ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
                         lowest_eval = eval;
                         best_moves = vec![movement];
                     }
@@ -352,16 +304,16 @@ fn get_best_line<'a>(depth: u8, position: &Position) -> Result<(f32, Vec<Move>),
 
                             // when getting the eval of the next move, the best move is the move that the other player will make
                             if position.active_colour == Side::White && eval > highest_eval {
-                                println!("\n{}[ Best move found for White ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
-                                println!("Black's response is: {:#?}", responses);
+                                // println!("\n{}[ Best move found for White ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                                // println!("Black's response is: {:#?}", responses);
                                 highest_eval = eval;
                                 best_moves = vec![movement];
                                 for res in responses {
                                     best_moves.push(res);
                                 }
                             } else if position.active_colour == Side::Black && eval < lowest_eval {
-                                println!("\n{}[ Best move found for Black ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
-                                println!("White's response is: {:#?}", responses);
+                                // println!("\n{}[ Best move found for Black ]: {}{}{}\n", pad(depth), movement, pad(4), eval);
+                                // println!("White's response is: {:#?}", responses);
                                 lowest_eval = eval;
                                 best_moves = vec![movement];
                                 for res in responses {

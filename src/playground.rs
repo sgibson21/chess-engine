@@ -45,7 +45,7 @@ pub fn play() {
     println!("\nPawn ASCI Board:\n{}", bb_asci);
     println!("\nNumbered ASCI Board:\n{}", asci_board_indicies());
 
-    println!("Evaluation: {}", evaluate(starting_fen, 1));
+    // println!("Evaluation: {}", evaluate(starting_fen, 1));
 
     let built_fen = to_fen(position.clone());
     println!("\nFEN built from position:\n\t{}", built_fen);

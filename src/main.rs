@@ -59,9 +59,20 @@ struct ResponsePayload {
 
 #[post("/evaluate", data = "<fen>")]
 fn evaluate_post(fen: Json<RequestPayload>) -> Json<ResponsePayload> {
-    Json(ResponsePayload {
-        evaluation: evaluate(fen.fen, 1)
-    })
+    let depth = 3;
+    match evaluate(fen.fen, depth) {
+        Ok((eval, moves)) => {
+            println!("Evaluation: {}\nMoves: {:#?}", eval, moves);
+            Json(ResponsePayload {
+                evaluation: eval
+            })
+        },
+        Err(e) => {
+            Json(ResponsePayload {
+                evaluation: 0.0
+            })
+        }
+    }
 }
 
 #[options("/evaluate")]
